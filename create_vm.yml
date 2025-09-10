@@ -37,7 +37,7 @@
         clone: "Ubuntu-img"
         name: "{{ item.name }}"
         storage: "homelab"
-        timeout: 300
+        timeout: 400
       loop: "{{ vms_to_create }}"
 
 
@@ -57,7 +57,7 @@
          net0: 'virtio,bridge=vmbr1'
         ipconfig:
           ipconfig0: 'ip={{item.ip_address}},gw={{gateway}}'
-        timeout: 300
+        timeout: 400
         update: true
       loop: "{{ vms_to_create }}"
 
