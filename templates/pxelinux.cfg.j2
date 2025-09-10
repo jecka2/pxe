@@ -1,0 +1,37 @@
+DEFAULT menu.c32
+PROMPT 0
+TIMEOUT 300
+ONTIMEOUT local
+
+MENU TITLE PXE Boot Menu - Ubuntu 24.04.3 LTS
+
+LABEL local
+    MENU LABEL ^Boot from local drive
+    LOCALBOOT 0
+    TIMEOUT 150
+
+LABEL ubuntu-24043-install
+    MENU LABEL ^Install Ubuntu 24.04.3 LTS
+    KERNEL ubuntu-24.04/linux
+    APPEND initrd=ubuntu-24.04/initrd.gz
+        priority=critical
+        vga=788
+        ip=dhcp
+        net.ifnames=0
+        biosdevname=0
+        console=tty0
+        console=ttyS0,115200n8
+        ---
+
+LABEL ubuntu-24043-text
+    MENU LABEL Install Ubuntu 24.04.3 LTS (^Text Mode)
+    KERNEL ubuntu-24.04/linux
+    APPEND initrd=ubuntu-24.04/initrd.gz
+        vga=normal
+        ip=dhcp
+        net.ifnames=0
+        biosdevname=0
+        console=tty0
+        console=ttyS0,115200n8
+        ---
+
