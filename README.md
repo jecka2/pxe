@@ -1,4 +1,19 @@
-1
+
+### 29.DHCP, PXE 
+
+#### Что нужно сделать?
+
+Настроить загрузку по сети дистрибутива Ubuntu 24
+Установка должна проходить из HTTP-репозитория.
+Настроить автоматическую установку c помощью файла user-data
+Задания со звёздочкой*
+Настроить автоматическую загрузку по сети дистрибутива Ubuntu 24 c использованием UEFI
+
+
+#### Выполнение
+
+<details><summary><code> 1. Развертывание  тестовых машин  </code></summary>
+
 ```bash
 jecka@debian:~/git/pxe$ ansible-playbook create_vm.yml --ask-vault-pass
 Vault password: 
@@ -27,7 +42,7 @@ changed: [pve] => (item={'name': 'client', 'ip_address': 'dhcp', 'memory': '1024
 
 TASK [Update VM configs] ****************************************************************************************************************************************************************************************************************************************************
 changed: [pve] => (item={'name': 'TFTP', 'ip_address': '192.168.1.106/24', 'memory': '1024'})
-changed: [pve] => (item={'name': 'client', 'ip_address': 'dhcp', 'memory': '1024'})
+changed: [pve] => (item={'name': 'client', 'ip_address': 'dhcp', 'memory': '4096'})
 
 TASK [Start VM] *************************************************************************************************************************************************************************************************************************************************************
 changed: [pve]
@@ -35,9 +50,12 @@ changed: [pve]
 PLAY RECAP ******************************************************************************************************************************************************************************************************************************************************************
 pve                        : ok=8    changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 ```
+</details>
+
+<details><summary><code> 2. Непосредственное настройка PXE  сервера </code></summary>
 
 ```bash
-jecka@debian:~/git/pxe$ ansible-playbook config_server.yml --ask-vault-pass
+jecka@debian:~/git/pxe$ ansible-playbook Configure.yml --ask-vault-pass
 Vault password: 
 
 PLAY [Install  & config PXE server] *****************************************************************************************************************************************************************************************************************************************
@@ -54,10 +72,23 @@ ok: [TFTP] => (item=/srv/tftp)
 changed: [TFTP] => (item=/srv/tftp/pxelinux.cfg)
 changed: [TFTP] => (item=/srv/tftp/ubuntu-24.04)
 ok: [TFTP] => (item=/var/www/html)
+changed: [TFTP] => (item=/var/www/html/autoinstall)
+changed: [TFTP] => (item=/var/log/tftp)
 
-TASK [Download Ubuntu 24.04.3 netboot files] ********************************************************************************************************************************************************************************************************************************
-changed: [TFTP] => (item=ubuntu-installer/amd64/linux)
-changed: [TFTP] => (item=ubuntu-installer/amd64/initrd.gz)
+TASK [Download Ubuntu 24.04.3 ISO] ******************************************************************************************************************************************************************************************************************************************
+changed: [TFTP]
+
+TASK [Mount ISO to extract boot files] **************************************************************************************************************************************************************************************************************************************
+[WARNING]: Deprecation warnings can be disabled by setting `deprecation_warnings=False` in ansible.cfg.
+[DEPRECATION WARNING]: Passing `warnings` to `exit_json` or `fail_json` is deprecated. This feature will be removed from ansible-core version 2.23. Use `AnsibleModule.warn` instead.
+changed: [TFTP]
+
+TASK [Copy kernel and initrd from ISO to TFTP] ******************************************************************************************************************************************************************************************************************************
+changed: [TFTP] => (item=vmlinuz)
+changed: [TFTP] => (item=initrd)
+
+TASK [Unmount ISO] **********************************************************************************************************************************************************************************************************************************************************
+changed: [TFTP]
 
 TASK [Copy SYSLINUX files to TFTP root] *************************************************************************************************************************************************************************************************************************************
 changed: [TFTP] => (item=ldlinux.c32)
@@ -68,13 +99,22 @@ changed: [TFTP] => (item=libcom32.c32)
 TASK [Copy pxelinux.0 to TFTP root] *****************************************************************************************************************************************************************************************************************************************
 changed: [TFTP]
 
-TASK [Configure TFTP server] ************************************************************************************************************************************************************************************************************************************************
+TASK [Create user-data for autoinstall] *************************************************************************************************************************************************************************************************************************************
 changed: [TFTP]
 
-TASK [Create PXE menu configuration] ****************************************************************************************************************************************************************************************************************************************
+TASK [Create meta-data file] ************************************************************************************************************************************************************************************************************************************************
 changed: [TFTP]
 
-TASK [Configure Nginx for HTTP serving] *************************************************************************************************************************************************************************************************************************************
+TASK [Create vendor-data file (optional)] ***********************************************************************************************************************************************************************************************************************************
+changed: [TFTP]
+
+TASK [Configure TFTP server with logging] ***********************************************************************************************************************************************************************************************************************************
+changed: [TFTP]
+
+TASK [Create PXE menu configuration with autoinstall] ***********************************************************************************************************************************************************************************************************************
+changed: [TFTP]
+
+TASK [Configure Nginx for autoinstall serving] ******************************************************************************************************************************************************************************************************************************
 changed: [TFTP]
 
 TASK [Enable Nginx site] ****************************************************************************************************************************************************************************************************************************************************
@@ -87,20 +127,15 @@ TASK [Ensure services are enabled and started] *********************************
 ok: [TFTP] => (item=tftpd-hpa)
 ok: [TFTP] => (item=nginx)
 
-TASK [Verify netboot files] *************************************************************************************************************************************************************************************************************************************************
-ok: [TFTP] => (item=linux)
-ok: [TFTP] => (item=initrd.gz)
-
 RUNNING HANDLER [restart tftpd-hpa] *****************************************************************************************************************************************************************************************************************************************
 changed: [TFTP]
 
 PLAY RECAP ******************************************************************************************************************************************************************************************************************************************************************
-TFTP                       : ok=14   changed=11   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-
+TFTP                       : ok=19   changed=17   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 ```
- 
+ </details>
 
- После выполнения данных оперций и включив  на вашем DHCP 
+ После выполнения данных оперций и включив на вашем DHCP 
  ОПЦИЯ 66 - Указать ip адрес PXE сервера 
  ОПЦИЯ 67 -  Укзать в качестве опции файл pxelinux.0
 
@@ -108,5 +143,55 @@ TFTP                       : ok=14   changed=11   unreachable=0    failed=0    s
  После данных действий при запуске виртуальных  или физических машин и настройке их загружаться по сети. Они смогут производить загрузку/установку ОС с сервера PXE развернутого в нашей сети.
 
  ![Указание что , машина увидела возможность загрузки по сети ](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/pxe_boot.png)
+ ![Скачивание дистрибутива непосредственно с нашего сервера PXE ](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/Pxe_boot_init.png)
  ![Список возможных загрузок](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/pxe_menu.png)
  ![Процесс установки](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/screenshots/install_menu.png)
+ ![Процесс установки c автоответами](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/screenshots/Autoinstall.png)
+
+<details><summary><code> 3.  Ниже лог с нашего Web сервера  укахывающий что с него был загружен дисрибутив и файлы автоответов  </code></summary
+
+```bash
+ansible@TFTP:~$ cat /var/log/nginx/access.log 
+192.168.1.38 - - [13/Sep/2025:04:05:35 +0300] "GET /ubuntu-24.04.3-live-server-amd64.iso HTTP/1.1" 200 3303444480 "-" "Wget"
+192.168.1.38 - - [13/Sep/2025:04:05:47 +0300] "GET /autoinstall/user-data HTTP/1.1" 200 2127 "-" "Cloud-Init/25.1.4-0ubuntu0~24.04.1"
+192.168.1.38 - - [13/Sep/2025:04:05:49 +0300] "GET /autoinstall/user-data HTTP/1.1" 200 2127 "-" "Cloud-Init/25.1.4-0ubuntu0~24.04.1"
+
+```
+</details>
+
+<details><summary><code> 4. Данные из журнала указывают что файлы  были скачаны клиентом 192.168.1.37 из TFTP директории </code></summary>
+```bash
+Sep 13 04:03:45 TFTP in.tftpd[8804]: RRQ from 192.168.1.37 filename pxelinux.0
+Sep 13 04:03:45 TFTP in.tftpd[8805]: RRQ from 192.168.1.37 filename ldlinux.c32
+Sep 13 04:03:45 TFTP in.tftpd[8806]: RRQ from 192.168.1.37 filename pxelinux.cfg/b08e776a-35a7-1241-9f1f-a21858268295
+Sep 13 04:03:45 TFTP in.tftpd[8807]: RRQ from 192.168.1.37 filename pxelinux.cfg/01-bc-24-11-0b-27-d6
+Sep 13 04:03:45 TFTP in.tftpd[8808]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A80125
+Sep 13 04:03:45 TFTP in.tftpd[8809]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A8012
+Sep 13 04:03:45 TFTP in.tftpd[8810]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A801
+Sep 13 04:03:45 TFTP in.tftpd[8811]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A80
+Sep 13 04:03:45 TFTP in.tftpd[8812]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A8
+Sep 13 04:03:45 TFTP in.tftpd[8813]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A
+Sep 13 04:03:45 TFTP in.tftpd[8814]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0
+Sep 13 04:03:45 TFTP in.tftpd[8815]: RRQ from 192.168.1.37 filename pxelinux.cfg/C
+Sep 13 04:03:45 TFTP in.tftpd[8816]: RRQ from 192.168.1.37 filename pxelinux.cfg/default
+Sep 13 04:03:45 TFTP in.tftpd[8817]: RRQ from 192.168.1.37 filename menu.c32
+Sep 13 04:03:45 TFTP in.tftpd[8818]: RRQ from 192.168.1.37 filename libutil.c32
+Sep 13 04:03:45 TFTP in.tftpd[8819]: RRQ from 192.168.1.37 filename pxelinux.cfg/default
+Sep 13 04:04:43 TFTP in.tftpd[8820]: RRQ from 192.168.1.37 filename pxelinux.0
+Sep 13 04:04:43 TFTP in.tftpd[8821]: RRQ from 192.168.1.37 filename ldlinux.c32
+Sep 13 04:04:43 TFTP in.tftpd[8822]: RRQ from 192.168.1.37 filename pxelinux.cfg/b08e776a-35a7-1241-9f1f-a21858268295
+Sep 13 04:04:43 TFTP in.tftpd[8823]: RRQ from 192.168.1.37 filename pxelinux.cfg/01-bc-24-11-0b-27-d6
+Sep 13 04:04:43 TFTP in.tftpd[8824]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A80125
+Sep 13 04:04:43 TFTP in.tftpd[8825]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A8012
+Sep 13 04:04:43 TFTP in.tftpd[8826]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A801
+Sep 13 04:04:43 TFTP in.tftpd[8827]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A80
+Sep 13 04:04:43 TFTP in.tftpd[8828]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A8
+Sep 13 04:04:43 TFTP in.tftpd[8829]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0A
+Sep 13 04:04:43 TFTP in.tftpd[8830]: RRQ from 192.168.1.37 filename pxelinux.cfg/C0
+Sep 13 04:04:43 TFTP in.tftpd[8831]: RRQ from 192.168.1.37 filename pxelinux.cfg/C
+Sep 13 04:04:43 TFTP in.tftpd[8832]: RRQ from 192.168.1.37 filename pxelinux.cfg/default
+Sep 13 04:04:43 TFTP in.tftpd[8833]: RRQ from 192.168.1.37 filename menu.c32
+Sep 13 04:04:43 TFTP in.tftpd[8834]: RRQ from 192.168.1.37 filename libutil.c32
+Sep 13 04:04:43 TFTP in.tftpd[8835]: RRQ from 192.168.1.37 filename pxelinux.cfg/default
+```
+</details>

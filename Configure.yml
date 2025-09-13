@@ -1,0 +1,187 @@
+---
+- name: Install  & config PXE server
+  hosts: TFTP
+  vars_files:
+   - secrets.yml
+   - vars/hosts.yml
+  become: true
+  tasks:
+       - name: Install required packages
+         apt:
+          name:
+           - tftpd-hpa
+           - nginx
+           - syslinux
+           - syslinux-common
+           - pxelinux
+           - wget
+           - curl
+           - xorriso
+           - cloud-init
+          state: present
+          update_cache: yes
+
+       - name: Create directory structure
+         file:
+          path: "{{ item }}"
+          state: directory        
+          mode: '0755'
+         loop:
+            - "{{ tftp_root }}"
+            - "{{ tftp_root }}/pxelinux.cfg"
+            - "{{ tftp_root }}/ubuntu-24.04"
+            - "{{ http_root }}"
+            - "{{ http_root }}/{{ autoinstall_dir }}"
+            - "{{ tftp_log_dir }}"
+        
+       - name: Download Ubuntu 24.04.3 ISO
+         get_url:
+           url: "{{ ubuntu_iso_url }}"
+           dest: "{{ http_root }}/{{ ubuntu_iso_filename }}"
+           timeout: 3600
+
+       - name: Mount ISO to extract boot files
+         ansible.posix.mount:
+           path: /mnt/ubuntu-iso
+           src: "{{ http_root }}/{{ ubuntu_iso_filename }}"
+           fstype: iso9660
+           state: mounted
+           opts: loop,ro
+       
+       - name: Copy kernel and initrd from ISO to TFTP
+         copy:
+           remote_src: yes
+           src: "/mnt/ubuntu-iso/casper/{{ item }}"
+           dest: "{{ tftp_root }}/ubuntu-24.04/{{ item }}"
+           mode: '0644'
+         loop:
+           - vmlinuz
+           - initrd
+       
+       - name: Unmount ISO
+         ansible.posix.mount:
+           path: /mnt/ubuntu-iso
+           state: unmounted
+       
+       - name: Copy SYSLINUX files to TFTP root
+         copy:
+           remote_src: yes
+           src: "/usr/lib/syslinux/modules/bios/{{ item }}"
+           dest: "{{ tftp_root }}/"
+           mode: '0644'
+         loop:
+           - ldlinux.c32
+           - libutil.c32
+           - menu.c32
+           - libcom32.c32
+       
+       - name: Copy pxelinux.0 to TFTP root
+         copy:
+           remote_src: yes
+           src: "/usr/lib/PXELINUX/pxelinux.0"
+           dest: "{{ tftp_root }}/"
+           mode: '0644'
+       
+       - name: Create user-data for autoinstall
+         template:
+           src:  "templates/user-data.j2"
+           dest: "{{ http_root }}/{{ autoinstall_dir }}/user-data"
+           mode: '0644'
+       
+       - name: Create meta-data file
+         copy:
+           content: |
+             instance-id: autoinstall-{{ 999999 | random }}
+             local-hostname: {{ default_hostname }}
+           dest: "{{ http_root }}/{{ autoinstall_dir }}/meta-data"
+           mode: '0644'
+       
+       - name: Create vendor-data file (optional)
+         copy:
+           content: |
+             #cloud-config
+             system_info:
+               default_user:
+                 name: {{ default_username }}
+           dest: "{{ http_root }}/{{ autoinstall_dir }}/vendor-data"
+           mode: '0644'
+       
+       - name: Configure TFTP server with logging
+         template:
+           src:  "templates/default.j2"            
+           dest: "/etc/default/tftpd-hpa"
+           mode: '0644'
+         notify: restart tftpd-hpa
+       
+       - name: Create PXE menu configuration with autoinstall
+         template:
+           src: "templates/pxelinux.cfg.j2"
+           dest: "{{ tftp_root }}/pxelinux.cfg/default"
+           mode: '0644'
+       
+       - name: Configure Nginx for autoinstall serving
+         copy:
+           content: |
+             server {
+                 listen {{ http_port }};
+                 root {{ http_root }};
+                 server_name _;
+                 
+                 location / {
+                     try_files $uri $uri/ =404;
+                 }
+                 
+                 location /{{ autoinstall_dir }}/ {
+                     autoindex on;
+                     add_header Content-Type text/plain;
+                 }
+                 
+                 # Allow large file downloads
+                 client_max_body_size 0;
+                 
+                 # Cache ISO file
+                 location ~* \.(iso)$ {
+                     expires 30d;
+                     add_header Cache-Control "public, immutable";
+                 }
+             }
+           dest: /etc/nginx/sites-available/pxe
+           mode: '0644'
+       
+       - name: Enable Nginx site
+         file:
+           src: /etc/nginx/sites-available/pxe
+           dest: /etc/nginx/sites-enabled/pxe
+           state: link
+       
+       - name: Disable default Nginx site
+         file:
+           path: /etc/nginx/sites-enabled/default
+           state: absent
+       
+       - name: Ensure services are enabled and started
+         service:
+           name: "{{ item }}"
+           state: started
+           enabled: yes
+         loop:
+           - tftpd-hpa
+           - nginx
+       
+ 
+  handlers : 
+
+    - name: restart tftpd-hpa
+      service:
+       name: tftpd-hpa
+       state: restarted
+
+    - name: restart nginx
+      service:
+       name: nginx
+       state: restarted
+
+    - name: reload nginx
+      service:
+       name: nginx
+       state: reloaded
