@@ -160,6 +160,7 @@ ansible@TFTP:~$ cat /var/log/nginx/access.log
 </details>
 
 <details><summary><code> 4. Данные из журнала указывают что файлы  были скачаны клиентом 192.168.1.37 из TFTP директории </code></summary>
+
 ```bash
 Sep 13 04:03:45 TFTP in.tftpd[8804]: RRQ from 192.168.1.37 filename pxelinux.0
 Sep 13 04:03:45 TFTP in.tftpd[8805]: RRQ from 192.168.1.37 filename ldlinux.c32
