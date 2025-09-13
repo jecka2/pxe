@@ -21,16 +21,7 @@ autoinstall:
     swap:
       size: 0
 
-  # Package selection
-  packages:
-    - openssh-server
-    - curl
-    - wget
-    - net-tools
-    - htop
-    - vim
-
-  # User configuration
+   # User configuration
   user-data:
     disable_root: false
     timezone: UTC
@@ -42,50 +33,3 @@ autoinstall:
         lock_passwd: false
         
 
-  # SSH configuration
-  ssh:
-    install-server: true
-    allow-pw: true
-
-  # Late commands
-  late-commands:
-    - curtin in-target -- apt-get update
-    - curtin in-target -- apt-get upgrade -y
-    - curtin in-target -- systemctl enable ssh
-    - curtin in-target -- sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
-    - curtin in-target -- sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-    - echo "Autoinstall completed at $(date)" > /target/root/autoinstall-complete.txt
-
-  # Error handling
-  error-commands:
-    - echo "Autoinstall failed at $(date)" > /target/root/autoinstall-failed.txt
-    - logger -t autoinstall "Installation failed"
-
-# Cloud-init modules
-cloud_init_modules:
-  - migrator
-  - seed_random
-  - bootcmd
-  - write-files
-  - growpart
-  - resizefs
-  - set_hostname
-  - update_hostname
-  - update_etc_hosts
-  - ca-certs
-  - rsyslog
-  - users-groups
-  - ssh
-
-# System configuration
-system_info:
-  default_user:
-    name: {{ default_username }}
-    groups: [adm, cdrom, dip, plugdev, lxd, sudo]
-    shell: /bin/bash
-    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-  package_mirrors:
-    - arches: [i386, amd64]
-      failsafe:
-        primary: http://archive.ubuntu.com/ubuntu
-        security: http://security.ubuntu.com/ubuntu
