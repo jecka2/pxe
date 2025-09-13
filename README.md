@@ -145,8 +145,8 @@ TFTP                       : ok=19   changed=17   unreachable=0    failed=0    s
  ![Указание что , машина увидела возможность загрузки по сети ](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/pxe_boot.png)
  ![Скачивание дистрибутива непосредственно с нашего сервера PXE ](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/Pxe_boot_init.png)
  ![Список возможных загрузок](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/pxe_menu.png)
- ![Процесс установки](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/screenshots/install_menu.png)
- ![Процесс установки c автоответами](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/screenshots/Autoinstall.png)
+ ![Процесс установки](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/install_menu.png)
+ ![Процесс установки c автоответами](https://raw.githubusercontent.com/jecka2/pxe/refs/heads/main/Autoinstall.png)
 
 <details><summary><code> 3.  Ниже лог с нашего Web сервера  укахывающий что с него был загружен дисрибутив и файлы автоответов  </code></summary
 
